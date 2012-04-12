@@ -3,6 +3,7 @@
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <stdarg.h>
 
 #include "mem.h"
 #include "atom.h"
@@ -43,20 +44,69 @@ static void init_scatter()
     printf("\n");
 }
 
+//增加的用来判断的函数
+//0:表示是用来str是不是存在buckets中
+//1：表示是如果str在buckets中的话就删除这个原子
+static int is_in_buckets(const char* str,int len,int flag)
+{
+    unsigned long h = 0;
+    atom* pre = NULL;
+    atom* ptr = NULL;
+    int index = 0;
+    int i = 0;
+
+    assert(str);
+    assert(len >= 0);
+    
+    for(i = 0; i < len; i++)
+    {
+	h = (h<<1) + scatter[(unsigned char)str[i]];
+    }
+
+    index = h % (NELEM(buckets));
+    
+    for(ptr = pre = buckets[index]; ptr != NULL; ptr = ptr->link)
+    {
+	if(ptr->str == str)
+	{
+	    switch(flag)
+	    {
+		case 0:
+		    return 1;
+		    break;
+		case 1:
+		    {
+			if(pre == buckets[index])
+			{
+			    buckets[index] = ptr->link;
+			}
+			else
+			{
+			    pre->link = ptr->link;
+			}
+			FREE(ptr);
+			return 1;	
+			break;
+		    }
+	    }
+	}
+	pre = ptr;
+    }
+
+    return 0;
+}
+
 const char* atom_string(const char *str) 
 {
     assert(str);
 
-    return atom_new(str,strlen(str));
+    return atom_new(str,strlen(str),0);
 }
 
 const char* atom_int(long n) 
 {
     char str[43];
-    char *str1 = str + sizeof(str);
-    unsigned long m;
-
-    if(n == LONG_MIN)
+    char *str1 = str + sizeof(str); unsigned long m; if(n == LONG_MIN)
     {
 	m = LONG_MAX + 1UL;
     }
@@ -80,10 +130,13 @@ const char* atom_int(long n)
 	*(--str1) = '-';
     }
 
-    return atom_new(str1,str + sizeof(str) - str1);
+    return atom_new(str1,str + sizeof(str) - str1,0);
 }
 
-const char* atom_new(const char*str,int len)
+//flag 表示了对str是否进行复制的一个过程
+//0:表示的是如果对str进行开辟空间复制
+//1：表示不进行空间复制
+const char* atom_new(const char*str,int len,int flag)
 {
     unsigned long h = 0;
     atom* ptr = NULL;
@@ -114,17 +167,36 @@ const char* atom_new(const char*str,int len)
     }
     
     //recreate atom
-    ptr = (atom*)MALLOC(sizeof(struct atom)+ len + 1);
-    assert(ptr);
-    
-    ptr->len = len;
-    ptr->str = (char*)(ptr + 1);
 
-    if(len > 0)
+    switch(flag)
     {
-	memcpy(ptr->str,str,len);
+	case 0:
+	    {
+		ptr = (atom*)MALLOC(sizeof(struct atom)+ len + 1);
+    	    	assert(ptr);
+    	    	
+    	    	ptr->len = len;
+    	    	ptr->str = (char*)(ptr + 1);
+
+    	    	if(len > 0)
+    	    	{
+    	    	    memcpy(ptr->str,str,len);
+    	    	}
+    	    	ptr->str[len] = '\0';
+
+		break;
+	    }
+	case 1:
+	    {
+		ptr = (atom*)MALLOC(sizeof(struct atom));
+		assert(ptr);
+
+		ptr->len = len;
+		ptr->str = str;
+
+		break;
+	    }
     }
-    ptr->str[len] = '\0';
 
     ptr->link = buckets[index];
     buckets[index] = ptr;
@@ -134,29 +206,18 @@ const char* atom_new(const char*str,int len)
 
 int atom_length(const char *str)
 {
-    int i = 0;
-    atom* ptr = NULL;
-
     assert(str);
 
-    for(i = 0; i < NELEM(buckets);i++)
-    {
-	ptr = buckets[i];
-
-	for(;ptr != NULL;ptr = ptr->link)
-	{
-	    if(ptr->str == str)
-	    {
-		return ptr->len;
-	    }
-	}
-    }
+   if(is_in_buckets(str,strlen(str),0)) 
+   {
+       return strlen(str);
+   }
 
     assert(0);
     return 0;
 }
 
-void atom_free()
+void atom_reset()
 {
     atom* ptr = NULL;
     int i = 0;
@@ -165,14 +226,54 @@ void atom_free()
     {
 	ptr = buckets[i];
 
-	if(ptr != NULL)
+	for(;ptr != NULL;)
 	{
-	    for(;ptr != NULL;)
-	    {
-		atom*tmp = ptr;
-		ptr = ptr->link;
-		FREE(tmp);
-	    }
+	    atom* tmp = ptr;
+	    ptr = ptr->link;
+	    FREE(tmp);
 	}
     }
 }
+
+void atom_free(const char *str)
+{
+    assert(str);
+
+    if(!is_in_buckets(str,strlen(str),1))
+    {
+	assert(0);			
+    }
+}
+
+void atom_vload(const char *str,...)
+{
+    va_list vap;
+    
+    assert(str);
+
+    va_start(vap,str);
+    for(str;str;str = va_arg(vap,char*))
+    {
+	atom_string(str);
+    }
+}
+
+void atom_aload(const char* str[])
+{
+    const char* tmp = NULL;
+    int i = 0;
+    
+    assert(str);
+    for(tmp = str[i]; tmp; i++)
+    {
+	atom_string(tmp);
+    }
+}
+
+const char* atom_add(const char* str,int len) 
+{
+    assert(str);
+    assert(len >= 0);
+    return atom_new(str,len,1);    
+}
+

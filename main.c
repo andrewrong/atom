@@ -16,7 +16,7 @@ int main()
     printf("str = %s\n",atom_int(1010000));
     //printf("len = %d\n",atom_length(str2));
     
-    atom_free();
+    atom_reset();
     mem_check_write();
     return 0;
 }
