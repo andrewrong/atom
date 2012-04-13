@@ -70,3 +70,26 @@
     >	    }
     关于不定参数我其实也用过几次,可是每次重新使用的时候就会忘记,所以今天在重新学习一下.相对语法还是比较简单的,va_list 用来声明一个不定参数列表,va_start用来初始化不定列表.va_arg这是从不定列表中取出参数.va_end结束
     
+    4.free 和 malloc
+    这两个函数本身的使用其实可以说很简单,你可以成对的使用通常情况下是不会有问题的.但是在我的程序中我使用了一种以前没有用过的方法
+
+		ptr = (atom*)MALLOC(sizeof(struct atom)+ len + 1);
+
+    之前都没有试过这样的方式.上面的这个申请空间本身就申请的比struct atom的大小要多(len+1),所以我在想如果在free的时候是不是要先把多的那个部分先手动的释放,然后在释放ptr.因为我一直以为free在释放内存的时候是根据ptr本身的数据类型来释放内存的大小的.可后在网上看了其实是不用的.下面就来介绍关于free和malloc拉...
+
+    malloc本身申请的空间是在进程的堆空间.个人觉得os肯定是会对这部分的堆空间进行管理的,可能是链表的形式.根据&lt;&lt;unix 环境高级编程>>所讲的那样,malloc在分配空间的时候都是会分配比要求的大一些的空间,多的那个空间是用来存放一些信息,这些信息是**分配的大小和指向下一个分配块的指针**,也就是说申请的空间可以分为可见空间和不可见空间,不可见的空间是用来存放内存的信息,下面看看这些信息和free源代码.
+
+	    struct mem_control_block { 
+	    int is_available;   
+    	    int size;            
+    	    };
+
+	    void  free(void *ptr)  
+    	    { 
+    	            struct mem_control_block *free; 
+    	            free = ptr - sizeof(struct mem_control_block); 
+    	            free->is_available = 1; 
+    	            return; 
+    	    }
+
+    mem_control_block就是这个信息的,而它本身应该是放在可见空间的前面,从free的源代码中可以看出.所以我们可以知道的是free本身好像没有做一些实质性的东西.不过可以肯定的是free不是根据ptr的数据类型来释放空间的.
