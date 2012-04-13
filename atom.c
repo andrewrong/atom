@@ -100,13 +100,16 @@ const char* atom_string(const char *str)
 {
     assert(str);
 
-    return atom_new(str,strlen(str),0);
+    return atom_new(str,strlen(str));
 }
 
 const char* atom_int(long n) 
 {
     char str[43];
-    char *str1 = str + sizeof(str); unsigned long m; if(n == LONG_MIN)
+    char *str1 = str + sizeof(str); 
+    unsigned long m; 
+
+    if(n == LONG_MIN)
     {
 	m = LONG_MAX + 1UL;
     }
@@ -130,13 +133,14 @@ const char* atom_int(long n)
 	*(--str1) = '-';
     }
 
-    return atom_new(str1,str + sizeof(str) - str1,0);
+    return atom_new(str1,str + sizeof(str) - str1);
 }
+
 
 //flag 表示了对str是否进行复制的一个过程
 //0:表示的是如果对str进行开辟空间复制
 //1：表示不进行空间复制
-const char* atom_new(const char*str,int len,int flag)
+static const char* atom_create(const char*str,int len,int flag)
 {
     unsigned long h = 0;
     atom* ptr = NULL;
@@ -204,6 +208,12 @@ const char* atom_new(const char*str,int len,int flag)
     return ptr->str;
 }
 
+const char *atom_new(const char*str,int len)
+{
+    assert(str);
+    assert(len >= 0);
+    return atom_create(str,len,0);
+}
 int atom_length(const char *str)
 {
     assert(str);
@@ -256,6 +266,8 @@ void atom_vload(const char *str,...)
     {
 	atom_string(str);
     }
+
+    va_end(vap);
 }
 
 void atom_aload(const char* str[])
@@ -274,6 +286,6 @@ const char* atom_add(const char* str,int len)
 {
     assert(str);
     assert(len >= 0);
-    return atom_new(str,len,1);    
+    return atom_create(str,len,1);    
 }
 

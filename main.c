@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <limits.h>
 #include "mem.h"
 #include "atom.h"
 
@@ -13,7 +14,7 @@ int main()
 
     mem_check_init();
     printf("str = %s\n",atom_string(str));
-    printf("str = %s\n",atom_int(1010000));
+    printf("str = %s\n",atom_int(LONG_MIN));
     //printf("len = %d\n",atom_length(str2));
     
     atom_reset();
